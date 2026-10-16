@@ -1,0 +1,185 @@
+const request = require("supertest");
+const setupTestDb = require("./test-setup");
+const db = require("./db/connection");
+const bcrypt = require("bcrypt");
+const app = require("./app");
+
+beforeEach(async () => {
+  await setupTestDb();
+});
+
+test("connects to test database", async () => {
+  const result = await db.query(
+    `SELECT current_user, current_database();`
+  );
+
+  expect(result.rows).toEqual([
+    {
+      current_user: "auth_lab_user_test",
+      current_database: "auth_lab_test"
+    }
+  ]);
+});
+
+describe("GET /health", () => {
+  test("responds with 200", async () => {
+    const response = await request(app)
+      .get("/health");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      message: "ok"
+    });
+  });
+});
+
+describe("POST /register", () => {
+  test("successfully registers a user", async () => {
+    const response = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({
+      user: {
+        id: expect.any(Number),
+        username: "Pear"
+      }
+    });
+  });
+
+  test("attempt to register with a username that already exist fails", async () => {
+    const firstRegistration = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(firstRegistration.status).toBe(201);
+    expect(firstRegistration.body).toEqual({
+      user: {
+        id: expect.any(Number),
+        username: "Pear"
+      }
+    });
+
+    const secondRegistration = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear456"
+      });
+
+    expect(secondRegistration.status).toBe(409);
+    expect(secondRegistration.body).toEqual({
+      message: "Username already exists"
+    });
+
+    const usersResult = await db.query(
+      `SELECT * FROM users
+      WHERE username = $1;`,
+      ["Pear"]
+    );
+
+    expect(usersResult.rows.length).toBe(1);
+  });
+
+  test("trims a username containing whitespace", async () => {
+    const response = await request(app)
+      .post("/register")
+      .send({
+        username: "  Pear  ",
+        password: "pear123"
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({
+      user: {
+        id: expect.any(Number),
+        username: "Pear"
+      }
+    });
+  });
+
+  test("the user's password hash is stored instead of their plaintext password", async () => {
+    const response = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+    });
+
+    expect(response.status).toBe(201);
+
+    const userResult = await db.query(
+      `SELECT * FROM users
+      WHERE id = $1;`,
+      [response.body.user.id]
+    );
+
+    const user = userResult.rows[0];
+
+    expect(user.password_hash).not.toBe("pear123");
+
+    const passwordMatches = await bcrypt.compare(
+      "pear123",
+      user.password_hash
+    );
+
+    expect(passwordMatches).toBe(true);
+  });
+
+  test("an unsuccessful registration does not create a new user", async () => {
+    const usersBefore = await db.query(
+      `SELECT * FROM users;`
+    );
+
+    const response = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: null
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      message: "Invalid request body"
+    });
+
+    const usersAfter = await db.query(
+      `SELECT * FROM users;`
+    );
+
+    expect(usersAfter.rows).toEqual(usersBefore.rows);
+  });
+
+  test.each([
+    ["username is not a string", { username: 42, password: "pear123" }],
+    ["username is empty", { username: "", password: "pear123" }],
+    ["username is whitespace-only", { username: "  ", password: "pear123" }],
+    ["password is not a string", { username: "Pear", password: 42 }],
+    ["password is empty", { username: "Pear", password: "" }],
+    ["password is whitespace-only", { username: "Pear", password: "  " }],
+    ["body is missing a property", { username: "Pear" }],
+    ["body contains an unexpected property", { username: "Pear", role: "admin" }],
+    ["body is an array", []],
+    ["body is an empty object", {}]
+  ])("reject request if %s", async (description, body) => {
+    const response = await request(app)
+      .post("/register")
+      .send(body);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      message: "Invalid request body"
+    });
+  });
+});
+
+afterAll(async () => {
+  await db.end();
+});
