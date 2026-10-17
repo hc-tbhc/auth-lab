@@ -1,5 +1,6 @@
 require("./config/env");
 const express = require("express");
+const session = require("express-session");
 const usersRouter = require("./routes/users.routes");
 const {
   errorHandler
@@ -7,6 +8,15 @@ const {
 const app = express();
 
 app.use(express.json());
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true
+  }
+}));
 
 app.use("/", usersRouter);
 

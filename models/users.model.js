@@ -23,6 +23,30 @@ async function addUser(username, passwordHash) {
   }
 }
 
+async function getUserByUsername(username) {
+  const result = await db.query(
+    `SELECT id, username, password_hash
+    FROM users
+    WHERE username = $1;`,
+    [username]
+  );
+
+  return result.rows[0];
+}
+
+async function getUserById(userId) {
+  const result = await db.query(
+    `SELECT id, username
+    FROM users
+    WHERE id = $1;`,
+    [userId]
+  );
+
+  return result.rows[0];
+}
+
 module.exports = {
-  addUser
+  addUser,
+  getUserByUsername,
+  getUserById
 };

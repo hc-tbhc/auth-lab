@@ -180,6 +180,149 @@ describe("POST /register", () => {
   });
 });
 
+describe("POST /login", () => {
+  test("successfully logs in with valid credentials", async () => {
+    const registerUser = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerUser.status).toBe(201);
+
+    const response = await request(app)
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      user: {
+        id: registerUser.body.user.id,
+        username: "Pear"
+      }
+    });
+  });
+
+  test("attempting to login using an unknown username fails", async () => {
+    const response = await request(app)
+      .post("/login")
+      .send({
+        username: "Hair",
+        password: "pear123"
+      });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      message: "Invalid username or password"
+    });
+  });
+
+  test("a user cannot login as an existing user with an incorrect password", async () => {
+    const registerUser = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerUser.status).toBe(201);
+
+    const response = await request(app)
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pair123"
+      });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      message: "Invalid username or password"
+    });
+  });
+});
+
+describe("GET /me", () => {
+  test("an authenticated user can retrieve their own details", async () => {
+    const registerUser = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerUser.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    const getPear = await pear
+      .get("/me");
+
+    expect(getPear.status).toBe(200);
+    expect(getPear.body).toEqual(
+      registerUser.body
+    );
+  });
+
+  test("an unauthenticated request is rejected", async () => {
+    const response = await request(app)
+      .get("/me");
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      message: "Authentication required"
+    });
+  });
+
+  test("request from an authenticated user whose account no-longer exists is rejected", async () => {
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    await db.query(
+      `DELETE FROM users
+      WHERE id = $1;`,
+      [registerPear.body.user.id]
+    );
+
+    const getPear = await pear
+      .get("/me");
+
+    expect(getPear.status).toBe(401);
+    expect(getPear.body).toEqual({
+      message: "Authentication required"
+    });
+  });
+});
+
 afterAll(async () => {
   await db.end();
 });

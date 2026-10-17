@@ -1,10 +1,14 @@
+const {
+  getUserById
+} = require("../models/users.model");
+
 function badRequestResponse(res) {
   return res.status(400).json({
     message: "Invalid request body"
   });
 }
 
-function validateUserRegistrationBody(req, res, next) {
+function validateCredentialsBody(req, res, next) {
   if (
     !req.body
     || typeof req.body !== "object"
@@ -39,6 +43,29 @@ function validateUserRegistrationBody(req, res, next) {
   return next();
 }
 
+async function authenticateUser(req, res, next) {
+  if (!req.session.userId) {
+    return res.status(401).json({
+      message: "Authentication required"
+    });
+  }
+
+  const user = await getUserById(
+    req.session.userId
+  );
+
+  if (!user) {
+    return res.status(401).json({
+      message: "Authentication required"
+    });
+  }
+
+  req.user = user;
+
+  return next();
+}
+
 module.exports = {
-  validateUserRegistrationBody
+  validateCredentialsBody,
+  authenticateUser
 };
