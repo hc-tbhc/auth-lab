@@ -323,6 +323,64 @@ describe("GET /me", () => {
   });
 });
 
+describe("POST /logout", () => {
+  test("an authenticated user can log out successfully", async () => {
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    const getLoggedInPear = await pear
+      .get("/me");
+
+    expect(getLoggedInPear.status).toBe(200);
+    expect(getLoggedInPear.body).toEqual(
+      registerPear.body
+    );
+
+    const logoutPear = await pear
+      .post("/logout");
+
+    expect(logoutPear.status).toBe(200);
+    expect(logoutPear.body).toEqual({
+      message: "Logged out"
+    });
+
+    const getLoggedOutPear = await pear
+      .get("/me");
+
+    expect(getLoggedOutPear.status).toBe(401);
+    expect(getLoggedOutPear.body).toEqual({
+      message: "Authentication required"
+    });
+  });
+
+  test("an unauthenticated user cannot log out", async () => {
+    const response = await request(app)
+      .post("/logout");
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      message: "Authentication required"
+    });
+  });
+});
+
 afterAll(async () => {
   await db.end();
 });

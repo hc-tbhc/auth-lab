@@ -6,7 +6,8 @@ const {
 const {
   registerUser,
   loginUser,
-  getCurrentUser
+  getCurrentUser,
+  logoutUser
 } = require("../controllers/users.controller");
 const usersRouter = express.Router();
 
@@ -26,6 +27,12 @@ usersRouter.get(
   "/me",
   authenticateUser,
   getCurrentUser
+);
+
+usersRouter.post(
+  "/logout",
+  authenticateUser,
+  logoutUser
 );
 
 module.exports = usersRouter;
