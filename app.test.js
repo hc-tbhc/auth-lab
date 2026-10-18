@@ -205,6 +205,8 @@ describe("POST /login", () => {
         username: "Pear"
       }
     });
+    expect(response.headers["set-cookie"][0])
+      .toContain("SameSite=Lax");
   });
 
   test("attempting to login using an unknown username fails", async () => {
