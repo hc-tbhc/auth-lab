@@ -75,9 +75,34 @@ async function updateUserUsername(userId, username) {
   }
 }
 
+async function getPasswordHashById(userId) {
+  const result = await db.query(
+    `SELECT password_hash
+    FROM users
+    WHERE id = $1;`,
+    [userId]
+  );
+
+  return result.rows[0]?.password_hash;
+}
+
+async function updateUserPassword(userId, newPasswordHash) {
+  const result = await db.query(
+    `UPDATE users
+    SET password_hash = $2
+    WHERE id = $1
+    RETURNING id;`,
+    [userId, newPasswordHash]
+  );
+
+  return result.rows[0]?.id;
+}
+
 module.exports = {
   addUser,
   getUserByUsername,
   getUserById,
-  updateUserUsername
+  updateUserUsername,
+  getPasswordHashById,
+  updateUserPassword
 };

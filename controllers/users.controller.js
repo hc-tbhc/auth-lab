@@ -2,7 +2,9 @@ const bcrypt = require("bcrypt");
 const {
   addUser,
   getUserByUsername,
-  updateUserUsername
+  updateUserUsername,
+  getPasswordHashById,
+  updateUserPassword
 } = require("../models/users.model");
 
 async function registerUser(req, res) {
@@ -93,10 +95,56 @@ async function updateUsername(req, res) {
   });
 }
 
+async function patchPassword(req, res) {
+  const currentPassword = req.body.currentPassword;
+  const newPassword = req.body.newPassword;
+
+  const currentPasswordHash = await getPasswordHashById(
+    req.user.id
+  );
+
+  if (!currentPasswordHash) {
+    return res.status(404).json({
+      message: "User not found"
+    });
+  }
+
+  const isCorrectPassword = await bcrypt.compare(
+    currentPassword,
+    currentPasswordHash
+  );
+
+  if (!isCorrectPassword) {
+    return res.status(401).json({
+      message: "Invalid current password"
+    });
+  }
+
+  const newPasswordHash = await bcrypt.hash(
+    newPassword, 10
+  );
+
+  const updatePasswordRes = await updateUserPassword(
+    req.user.id,
+    newPasswordHash
+  );
+
+  if (updatePasswordRes === undefined) {
+    return res.status(404).json({
+      message: "User not found"
+    });
+  }
+
+  return res.status(200).json({
+    message: "Password changed"
+  });
+}
+
 module.exports = {
   registerUser,
   loginUser,
   getCurrentUser,
   logoutUser,
-  updateUsername
+  updateUsername,
+  patchPassword
 };

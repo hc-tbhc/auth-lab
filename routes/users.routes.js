@@ -2,14 +2,16 @@ const express = require("express");
 const {
   validateCredentialsBody,
   authenticateUser,
-  validateUsernamePatch
+  validateUsernamePatch,
+  validatePasswordPatch
 } = require("../middleware/users.middleware");
 const {
   registerUser,
   loginUser,
   getCurrentUser,
   logoutUser,
-  updateUsername
+  updateUsername,
+  patchPassword
 } = require("../controllers/users.controller");
 const usersRouter = express.Router();
 
@@ -42,6 +44,13 @@ usersRouter.patch(
   authenticateUser,
   validateUsernamePatch,
   updateUsername
+);
+
+usersRouter.patch(
+  "/users/me/password",
+  authenticateUser,
+  validatePasswordPatch,
+  patchPassword
 );
 
 module.exports = usersRouter;

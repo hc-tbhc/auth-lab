@@ -605,6 +605,224 @@ describe("PATCH /users/me", () => {
   });
 });
 
+describe("PATCH /users/me/password", () => {
+  test("an authenticated user can successfully update their password", async () => {
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    const updatePearPassword = await pear
+      .patch("/users/me/password")
+      .send({
+        currentPassword: "pear123",
+        newPassword: "pear456"
+      });
+
+    expect(updatePearPassword.status).toBe(200);
+    expect(updatePearPassword.body).toEqual({
+      message: "Password changed"
+    });
+
+    const oldPasswordLogin = await request(app)
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(oldPasswordLogin.status).toBe(401);
+    expect(oldPasswordLogin.body).toEqual({
+      message: "Invalid username or password"
+    });
+
+    const newPasswordLogin = await request(app)
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear456"
+      });
+
+    expect(newPasswordLogin.status).toBe(200);
+    expect(newPasswordLogin.body).toEqual({
+      user: {
+        id: registerPear.body.user.id,
+        username: "Pear"
+      }
+    });
+  });
+
+  test("an authenticated request that supplies an incorrect password is rejected", async () => {
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    const updatePearPassword = await pear
+      .patch("/users/me/password")
+      .send({
+        currentPassword: "wrongpassword",
+        newPassword: "pear456"
+      });
+
+    expect(updatePearPassword.status).toBe(401);
+    expect(updatePearPassword.body).toEqual({
+      message: "Invalid current password"
+    });
+
+    const newPasswordLogin = await request(app)
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear456"
+      });
+
+    expect(newPasswordLogin.status).toBe(401);
+    expect(newPasswordLogin.body).toEqual({
+      message: "Invalid username or password"
+    });
+
+    const oldPasswordLogin = await request(app)
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(oldPasswordLogin.status).toBe(200);
+    expect(oldPasswordLogin.body).toEqual({
+      user: {
+        id: registerPear.body.user.id,
+        username: "Pear"
+      }
+    });
+  });
+
+  test("a request from an unauthenticated user is rejected", async () => {
+    const response = await request(app)
+      .patch("/users/me/password")
+      .send({
+        currentPassword: "pear123",
+        newPassword: "pear456"
+      });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      message: "Authentication required"
+    });
+  });
+
+  test.each([
+    ["the currentPassword field is missing", { newPassword: "pear456" }],
+    ["the newPassword field is missing", { currentPassword: "pear123" }],
+    ["the currentPassword field is not a string", {
+      currentPassword: 42,
+      newPassword: "pear456"
+    }],
+    ["the newPassword field is not a string", {
+      currentPassword: "pear123",
+      newPassword: 42
+    }],
+    ["the currentPassword field is whitespace-only", {
+      currentPassword: "   ",
+      newPassword: "pear456"
+    }],
+    ["the newPassword field is whitespace-only", {
+      currentPassword: "pear123",
+      newPassword: "   "
+    }],
+    ["the currentPassword field is empty", {
+      currentPassword: "",
+      newPassword: "pear456"
+    }],
+    ["the newPassword field is empty", {
+      currentPassword: "pear123",
+      newPassword: ""
+    }],
+    ["body contains an unexpected field", {
+      currentPassword: "pear123",
+      newPassword: "pear456",
+      role: "admin"
+    }],
+    ["body is empty", {}],
+    ["body is an array", []]
+  ])("rejects request if %s", async (description, body) => {
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    const updatePearPassword = await pear
+      .patch("/users/me/password")
+      .send(body);
+
+    expect(updatePearPassword.status).toBe(400);
+    expect(updatePearPassword.body).toEqual({
+      message: "Invalid request body"
+    });
+
+    const originalPasswordLogin = await request(app)
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(originalPasswordLogin.status).toBe(200);
+    expect(originalPasswordLogin.body).toEqual({
+      user: {
+        id: registerPear.body.user.id,
+        username: "Pear"
+      }
+    });
+  });
+});
+
 afterAll(async () => {
   await db.end();
 });
