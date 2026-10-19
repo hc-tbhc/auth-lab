@@ -12,9 +12,12 @@ async function addUser(username, passwordHash) {
 
     return result.rows[0];
   } catch (err) {
-    if (err.code === "23505") {
+    if (
+      err.code === "23505" &&
+      err.constraint === "users_username_key"
+    ) {
       const error = new Error("Username already exists");
-      error.type = "USERNAME_ALREADY_EXISTS"
+      error.type = "USERNAME_ALREADY_EXISTS";
 
       throw error;
     }
@@ -45,8 +48,36 @@ async function getUserById(userId) {
   return result.rows[0];
 }
 
+async function updateUserUsername(userId, username) {
+  try {
+    const result = await db.query(
+      `UPDATE users
+      SET username = $2
+      WHERE id = $1
+      RETURNING id,
+      username;`,
+      [userId, username]
+    );
+
+    return result.rows[0];
+  } catch (err) {
+    if (
+      err.code === "23505" &&
+      err.constraint === "users_username_key"
+    ) {
+      const error = new Error("Username already exists");
+      error.type = "USERNAME_ALREADY_EXISTS";
+
+      throw error;
+    }
+
+    throw err;
+  }
+}
+
 module.exports = {
   addUser,
   getUserByUsername,
-  getUserById
+  getUserById,
+  updateUserUsername
 };

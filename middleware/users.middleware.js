@@ -65,7 +65,40 @@ async function authenticateUser(req, res, next) {
   return next();
 }
 
+function validateUsernamePatch(req, res, next) {
+  if (
+    !req.body
+    || typeof req.body !== "object"
+    || Array.isArray(req.body)
+  ) {
+    return res.status(400).json({
+      message: "Invalid request body"
+    });
+  }
+
+  const keys = Object.keys(req.body);
+
+  if (keys.length !== 1 || keys[0] !== "username") {
+    return res.status(400).json({
+      message: "Invalid request body"
+    });
+  }
+
+  const username = req.body.username;
+
+  if (typeof username !== "string" || !username.trim().length) {
+    return res.status(400).json({
+      message: "Invalid request body"
+    });
+  }
+
+  req.body.username = username.trim();
+
+  return next();
+}
+
 module.exports = {
   validateCredentialsBody,
-  authenticateUser
+  authenticateUser,
+  validateUsernamePatch
 };

@@ -1,13 +1,15 @@
 const express = require("express");
 const {
   validateCredentialsBody,
-  authenticateUser
+  authenticateUser,
+  validateUsernamePatch
 } = require("../middleware/users.middleware");
 const {
   registerUser,
   loginUser,
   getCurrentUser,
-  logoutUser
+  logoutUser,
+  updateUsername
 } = require("../controllers/users.controller");
 const usersRouter = express.Router();
 
@@ -33,6 +35,13 @@ usersRouter.post(
   "/logout",
   authenticateUser,
   logoutUser
+);
+
+usersRouter.patch(
+  "/users/me",
+  authenticateUser,
+  validateUsernamePatch,
+  updateUsername
 );
 
 module.exports = usersRouter;

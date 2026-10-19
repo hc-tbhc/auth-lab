@@ -383,6 +383,228 @@ describe("POST /logout", () => {
   });
 });
 
+describe("PATCH /users/me", () => {
+  test("an authenticated user can successfully update their username", async () => {
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    const updatePear = await pear
+      .patch("/users/me")
+      .send({
+        username: "Spear"
+      });
+
+    expect(updatePear.status).toBe(200);
+    expect(updatePear.body).toEqual({
+      user: {
+        id: registerPear.body.user.id,
+        username: "Spear"
+      }
+    });
+
+    const updatePearResult = await db.query(
+      `SELECT username
+      FROM users
+      WHERE id = $1;`,
+      [registerPear.body.user.id]
+    );
+
+    const updatedPear = updatePearResult.rows[0];
+
+    expect(updatedPear.username).toBe("Spear");
+  });
+
+  test("an unauthenticated user is rejected", async () => {
+    const response = await request(app)
+      .patch("/users/me")
+      .send({
+        username: "Spear"
+      });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      message: "Authentication required"
+    });
+  });
+
+  test("an authenticated request to update with an already-taken username is rejected", async () => {
+    const registerDonald = await request(app)
+      .post("/register")
+      .send({
+        username: "Donald",
+        password: "FagenNotTrump"
+      });
+
+    expect(registerDonald.status).toBe(201);
+
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    const updatePear = await pear
+      .patch("/users/me")
+      .send({
+        username: "Donald"
+      });
+
+    expect(updatePear.status).toBe(409);
+    expect(updatePear.body).toEqual({
+      message: "Username already exists"
+    });
+
+    const donaldResult = await db.query(
+      `SELECT username
+      FROM users
+      WHERE id = $1;`,
+      [registerDonald.body.user.id]
+    );
+
+    const donaldRow = donaldResult.rows[0];
+
+    expect(donaldRow.username).toBe("Donald");
+
+    const pearResult = await db.query(
+      `SELECT username
+      FROM users
+      WHERE id = $1;`,
+      [registerPear.body.user.id]
+    );
+
+    const pearRow = pearResult.rows[0];
+
+    expect(pearRow.username).toBe("Pear");
+  });
+
+  test.each([
+    ["missing username", {}],
+    ["invalid username type", { username: 123 }],
+    ["empty username string", { username: "" }],
+    ["whitespace-only username", { username: "   " }],
+    ["unexpected extra field", { username: "Spear", role: "admin" }],
+    ["array request body", []]
+  ])("rejects request with %s", async (description, body) => {
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    const updatePear = await pear
+      .patch("/users/me")
+      .send(body);
+
+    expect(updatePear.status).toBe(400);
+    expect(updatePear.body).toEqual({
+      message: "Invalid request body"
+    });
+
+    const pearUpdateResult = await db.query(
+      `SELECT username
+      FROM users
+      WHERE id = $1;`,
+      [registerPear.body.user.id]
+    );
+
+    const pearRow = pearUpdateResult.rows[0];
+
+    expect(pearRow.username).toBe("Pear");
+  });
+
+  test("username containing whitespace gets trimmed and stored", async () => {
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    const updatePear = await pear
+      .patch("/users/me")
+      .send({
+        username: "  Spear  "
+      });
+
+    expect(updatePear.status).toBe(200);
+    expect(updatePear.body).toEqual({
+      user: {
+        id: registerPear.body.user.id,
+        username: "Spear"
+      }
+    });
+
+    const pearUpdateResult = await db.query(
+      `SELECT username
+      FROM users
+      WHERE id = $1;`,
+      [registerPear.body.user.id]
+    );
+
+    const pearRow = pearUpdateResult.rows[0];
+
+    expect(pearRow.username).toBe("Spear");
+  });
+});
+
 afterAll(async () => {
   await db.end();
 });
