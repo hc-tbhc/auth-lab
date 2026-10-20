@@ -823,6 +823,126 @@ describe("PATCH /users/me/password", () => {
   });
 });
 
+describe("DELETE /users/me", () => {
+  test("an authenticated user can successfully delete their account", async () => {
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    const deletePear = await pear
+      .delete("/users/me");
+
+    expect(deletePear.status).toBe(204);
+    expect(deletePear.text).toBe("");
+
+    const getPear = await pear
+      .get("/me");
+
+    expect(getPear.status).toBe(401);
+    expect(getPear.body).toEqual({
+      message: "Authentication required"
+    });
+
+    const loginPearAfterDelete = await request(app)
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPearAfterDelete.status).toBe(401);
+    expect(loginPearAfterDelete.body).toEqual({
+      message: "Invalid username or password"
+    });
+  });
+
+  test("an unauthenticated user cannot delete an account", async () => {
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const deletePear = await request(app)
+      .delete("/users/me");
+
+    expect(deletePear.status).toBe(401);
+    expect(deletePear.body).toEqual({
+      message: "Authentication required"
+    });
+
+    const loginPear = await request(app)
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+    expect(loginPear.body).toEqual({
+      user: {
+        id: registerPear.body.user.id,
+        username: "Pear"
+      }
+    });
+  });
+
+  test("a second deletion request is rejected after account deletion", async () => {
+    const registerPear = await request(app)
+      .post("/register")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(registerPear.status).toBe(201);
+
+    const pear = request.agent(app);
+
+    const loginPear = await pear
+      .post("/login")
+      .send({
+        username: "Pear",
+        password: "pear123"
+      });
+
+    expect(loginPear.status).toBe(200);
+
+    const deletePearOnce = await pear
+      .delete("/users/me");
+
+    expect(deletePearOnce.status).toBe(204);
+    expect(deletePearOnce.text).toBe("");
+
+    const deletePearTwice = await pear
+      .delete("/users/me");
+
+    expect(deletePearTwice.status).toBe(401);
+    expect(deletePearTwice.body).toEqual({
+      message: "Authentication required"
+    });
+  });
+});
+
 afterAll(async () => {
   await db.end();
 });

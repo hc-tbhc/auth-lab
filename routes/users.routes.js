@@ -11,7 +11,8 @@ const {
   getCurrentUser,
   logoutUser,
   updateUsername,
-  patchPassword
+  patchPassword,
+  deleteCurrentUser
 } = require("../controllers/users.controller");
 const usersRouter = express.Router();
 
@@ -51,6 +52,12 @@ usersRouter.patch(
   authenticateUser,
   validatePasswordPatch,
   patchPassword
+);
+
+usersRouter.delete(
+  "/users/me",
+  authenticateUser,
+  deleteCurrentUser
 );
 
 module.exports = usersRouter;

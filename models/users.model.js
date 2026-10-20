@@ -98,11 +98,23 @@ async function updateUserPassword(userId, newPasswordHash) {
   return result.rows[0]?.id;
 }
 
+async function deleteUserById(userId) {
+  const result = await db.query(
+    `DELETE FROM users
+    WHERE id = $1
+    RETURNING id;`,
+    [userId]
+  );
+
+  return result.rows[0]?.id;
+}
+
 module.exports = {
   addUser,
   getUserByUsername,
   getUserById,
   updateUserUsername,
   getPasswordHashById,
-  updateUserPassword
+  updateUserPassword,
+  deleteUserById
 };

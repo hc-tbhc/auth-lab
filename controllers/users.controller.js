@@ -4,7 +4,8 @@ const {
   getUserByUsername,
   updateUserUsername,
   getPasswordHashById,
-  updateUserPassword
+  updateUserPassword,
+  deleteUserById
 } = require("../models/users.model");
 
 async function registerUser(req, res) {
@@ -140,11 +141,31 @@ async function patchPassword(req, res) {
   });
 }
 
+async function deleteCurrentUser(req, res, next) {
+  const deletedUser = await deleteUserById(
+    req.user.id
+  );
+
+  if (!deletedUser) {
+    return res.status(404).json({
+      message: "User not found"
+    });
+  }
+
+  req.session.destroy(err => {
+    if (err) return next(err);
+
+    res.clearCookie("connect.sid");
+    return res.status(204).end();
+  });
+}
+
 module.exports = {
   registerUser,
   loginUser,
   getCurrentUser,
   logoutUser,
   updateUsername,
-  patchPassword
+  patchPassword,
+  deleteCurrentUser
 };
